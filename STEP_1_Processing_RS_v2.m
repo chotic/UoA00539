@@ -24,40 +24,41 @@ flagFiltered = 0;
 
 %% Check Cores
 
-defThreads=feature('numcores');
+matThreads=feature('numcores');
 %% Check if in cluster or local
-% Enviroment Variable TMPDIR only exists in slurm enviroment.
+% Environment Variable TMPDIR only exists in slurm environment.
 tmpDir = getenv('TMPDIR');
 if ~isempty(tmpDir)   
-       sThreads = str2double(getenv('SLURM_CPUS_PER_TASK'));
+       slurmThreads = str2double(getenv('SLURM_CPUS_PER_TASK'));
        if ~isempty(tmpDir)
-           maxWorkerThreads=sThreads;
+           maxWorkers=slurmThreads;
        else
-           maxWorkerThreads=1;
+           maxWorkers=1;
        end
 else
     tmpDir=tempdir;
-    maxWorkerThreads=defThreads;
+    maxWorkers=matThreads;
 end
 
 %% Check if num workers specified, and legal.
-if exist('manualWorkerThreads','var')
-    manualWorkerThreads=str2double(manualWorkerThreads);
-    if ~isnan((manualWorkerThreads))
-        if manualWorkerThreads < maxWorkerThreads
-            WorkerThreads=manualWorkerThreads;
+%Default workers is max.
+
+if exist('setWorkers','var')
+    if ~isnan((setWorkers))
+        if setWorkers < maxWorkers
+            maxWorkers=setWorkers;
         else
-            disp(['Too many workers requested, using max of ', num2str(WorkerThreads)]);
+            disp(['Too many workers requested, using max of ', num2str(maxWorkers)]);
         end
     else
-        disp(['Invalid worker input requested, using max of ', num2str(WorkerThreads)]);
+        disp(['Invalid worker input requested, using max of ', num2str(maxWorkers)]);
     end
 else
-    disp(['No workers requested, using max of ', num2str(WorkerThreads)]);
+    disp(['No workers requested, using max of ', num2str(maxWorkers)]);
 end 
 
 %% Setup parpool if workers > 1
-if WorkerThreads>1
+if maxWorkers>1
     %Stop annoying bug
     setenv('TZ','Pacific/Auckland');
     
@@ -65,7 +66,7 @@ if WorkerThreads>1
     feature('numcores');
     pc = parcluster('local');
     pc.JobStorageLocation = tmpDir;
-    parpool(pc, WorkerThreads);
+    parpool(pc, maxWorkers);
 
 else
     disp('Not enough threads, parpool disabled');

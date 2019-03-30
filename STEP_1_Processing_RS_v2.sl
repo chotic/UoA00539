@@ -1,19 +1,22 @@
-#!/bin/bash
-#
+#!/bin/bash -e
+
 # may need to adjust
 #SBATCH --time=00:05:00
-
 #SBATCH --job-name=step1RS
-#SBATCH --error=step1RS-%A.error
 #SBATCH --output=step1RS-%A.output
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=20
-#SBATCH --mem=1G
+#SBATCH --cpus-per-task=16          
+#SBATCH --mem=18G
 ##SBATCH --hint=nomultithread
 
 DOWNSAMPLE_RATE=50
 
-# change to "module load MATLAB" on mahuika
-module load MATLAB
-srun matlab -nodisplay -nojvm -nosplash -r "downsampleRate=$DOWNSAMPLE_RATE; STEP_1_Processing_RS_v2; exit"
+#Set workers = 1 to disable parpool.
+#Comment out to use max.
+#WORKERS=1
+
+# Avoid possible future version issues
+module load MATLAB/2018b
+
+# If running serial '-nojvm' can be added
+matlab -nodisplay -nosplash -r "downsampleRate=$DOWNSAMPLE_RATE;setWorkers='$WORKERS';STEP_1_Processing_RS_v2; exit"
 

@@ -22,8 +22,55 @@ flag1020 = 1;
 % If flagFiltered = 0 then FIR is not used.
 flagFiltered = 0; 
 
-%% Remove warnings
-warning('off');
+%% Check Cores
+
+matThreads=feature('numcores');
+%% Check if in cluster or local
+% Environment Variable TMPDIR only exists in slurm environment.
+tmpDir = getenv('TMPDIR');
+if ~isempty(tmpDir)   
+       slurmThreads = str2double(getenv('SLURM_CPUS_PER_TASK'));
+       if ~isempty(tmpDir)
+           maxWorkers=slurmThreads;
+       else
+           maxWorkers=1;
+       end
+else
+    tmpDir=tempdir;
+    maxWorkers=matThreads;
+end
+
+%% Check if num workers specified, and legal.
+%Default workers is max.
+
+if exist('setWorkers','var')
+    if ~isnan((setWorkers))
+        if setWorkers < maxWorkers
+            maxWorkers=setWorkers;
+        else
+            disp(['Too many workers requested, using max of ', num2str(maxWorkers)]);
+        end
+    else
+        disp(['Invalid worker input requested, using max of ', num2str(maxWorkers)]);
+    end
+else
+    disp(['No workers requested, using max of ', num2str(maxWorkers)]);
+end 
+
+%% Setup parpool if workers > 1
+if maxWorkers>1
+    %Stop annoying bug
+    setenv('TZ','Pacific/Auckland');
+    
+    disp('Starting Parpool');
+    feature('numcores');
+    pc = parcluster('local');
+    pc.JobStorageLocation = tmpDir;
+    parpool(pc, maxWorkers);
+
+else
+    disp('Not enough threads, parpool disabled');
+end
 
 %% Downsample rate only samples every x values to reduce computation time for testing. Make '1' for max.
 if exist('downsampleRate', 'var')

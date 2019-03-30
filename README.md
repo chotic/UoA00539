@@ -31,7 +31,7 @@ check nansum:208.0924
 The run time will increase significantly with smaller `downsampleRate` values. The default value is 100. Use any value >= 1 with 1 meaning
 no downsampling. To set `downsampleRate` to 50, for instance, type command:
 ```
- matlab -nodisplay -nojvm -nosplash -r "downsampleRate=50; STEP_1_Processing_RS_v2; exit"
+exit"
 ``` 
 
 ## Running under Slurm 

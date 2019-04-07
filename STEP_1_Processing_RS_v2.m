@@ -22,14 +22,61 @@ flag1020 = 1;
 % If flagFiltered = 0 then FIR is not used.
 flagFiltered = 0; 
 
-%% Remove warnings
-warning('off');
+%% Check Cores
+
+matThreads=feature('numcores');
+%% Check if in cluster or local
+% Environment Variable TMPDIR only exists in slurm environment.
+tmpDir = getenv('TMPDIR');
+if ~isempty(tmpDir)   
+       slurmThreads = str2double(getenv('SLURM_CPUS_PER_TASK'));
+       if ~isempty(tmpDir)
+           maxWorkers=slurmThreads;
+       else
+           maxWorkers=1;
+       end
+else
+    tmpDir=tempdir;
+    maxWorkers=matThreads;
+end
+
+%% Check if num workers specified, and legal.
+%Default workers is max.
+
+if exist('setWorkers','var')
+    if ~isnan((setWorkers))
+        if setWorkers < maxWorkers
+            maxWorkers=setWorkers;
+        else
+            disp(['Too many workers requested, using max of ', num2str(maxWorkers)]);
+        end
+    else
+        disp(['Invalid worker input requested, using max of ', num2str(maxWorkers)]);
+    end
+else
+    disp(['No workers requested, using max of ', num2str(maxWorkers)]);
+end 
+
+%% Setup parpool if workers > 1
+if maxWorkers>1
+    %Stop annoying bug
+    setenv('TZ','Pacific/Auckland');
+    
+    disp('Starting Parpool');
+    feature('numcores');
+    pc = parcluster('local');
+    pc.JobStorageLocation = tmpDir;
+    parpool(pc, maxWorkers);
+
+else
+    disp('Not enough threads, parpool disabled');
+end
 
 %% Downsample rate only samples every x values to reduce computation time for testing. Make '1' for max.
 if exist('downsampleRate', 'var')
     disp(['downsampleRate = ', num2str(downsampleRate)])
 else
-    downsampleRate = 25; 
+    downsampleRate = 20; 
     disp(['downsampleRate not set... will use ', num2str(downsampleRate)])
 end
 
@@ -138,20 +185,19 @@ for iFile = 1:size(myFolderInfo,1)
             tic;
             
             if sum(channelVec==jChan)==1
-                 % Correlation dimension, PK
+                 % Correlation dimension, CD, PK, FNNB
                 d = 10;
                 
                 tic;
-                
                 [CD, PK, FNNB] = fcnCD_PK_v2(downsample(tempDataAll(jChan,:),downsampleRate),d,0,1,10,0,1); 
-	        time_CD_PK = time_CD_PK + toc;	
+                time_CD_PK = time_CD_PK + toc;	
 
                 % False nearest neighbors
-                tao = 10;
-                mmax = 10;
-                rtol = 10;
-                atol = 2;
-                thresh = 0.5;
+%                 tao = 10;
+%                 mmax = 10;
+%                 rtol = 10;
+%                 atol = 2;
+%                 thresh = 0.5;
 %                 FNN = find(fcnFNN(downsample(tempDataAll(jChan,:),downsampleRate),tao,mmax,rtol,atol) < thresh,1);
 %                 if isempty(FNN)
 %                     FNN = nan;
@@ -168,31 +214,37 @@ for iFile = 1:size(myFolderInfo,1)
 %                 [MSE, ~, ~] = fcnSE(tempDataAll(jChan,:));
 % 
                 % MFDFA
-                scmin=16;
-                scmax=1024;
-                scres=19;
-                exponents=linspace(log2(scmin),log2(scmax),scres);
-                scale=round(2.^exponents);
-                q=linspace(-5,20,101);
-                m=2;
+                scmin = 16;
+                scmax = 1024;
+                scres = 19;
+                exponents = linspace(log2(scmin),log2(scmax),scres);
+                scale = round(2.^exponents);
+                q = linspace(-5,5,101);
+                m = 1;
                 
-         tic;  
+                tic;  
                 [Hq,tq,hq,Dq,Fq] = fcnMFDFA(downsample(tempDataAll(jChan,:),downsampleRate),scale,q,m,0);
-        time_MFDFA = time_MFDFA + toc;
+                time_MFDFA = time_MFDFA + toc;
                 
+                % Remove NaN and Inf in Dq and hq
+                hq = hq(~isnan(hq) | ~isinf(hq));
+                Dq = Dq(~isnan(Dq) | ~isinf(Dq));
+                % Create vector for storing outputs
                 MFDFA = zeros(1,4);
-                MFDFA(1) = Dq(1);
-                MFDFA(2) = max(Dq);
-                MFDFA(3) = Dq(end);
-                MFDFA(4) = max(hq)-min(hq);
+                if (~isempty(hq) && ~isempty(Dq))
+                    MFDFA(1) = Dq(1);
+                    MFDFA(2) = max(Dq);
+                    MFDFA(3) = Dq(end);
+                    MFDFA(4) = max(hq)-min(hq);
+                end
                 
 %                 % LZ
 %                 LZ = fcnLZ(tempDataAll(jChan,:) >= median(tempDataAll(jChan,:)));
                 
                 % PSVG
-		tic;
+                tic;
                 VG = fcnPSVG(downsample(tempDataAll(jChan,:),downsampleRate)');
-		time_PSVG = time_PSVG + toc;
+                time_PSVG = time_PSVG + toc;
                 
                 % Store results
                 LE = 0; HFD = 0; MSE = 0; LZ = 0; 

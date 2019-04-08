@@ -12,7 +12,7 @@ mex computeRatio.cpp
 mex countGraphEdges.cpp
 
 %% Get file you want to investigate
-myFolderInfo = dir('Pilot3003.RAW'); 
+myFolderInfo = dir('../Raw files/Pilot3003.RAW'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 iFile = 1;
 
@@ -21,7 +21,7 @@ filename = myFolderInfo(iFile).name;
 EEG = pop_readegi(filename, [],[],'auto');
 
 %% Correct delay 
-EEG = correctDelay(EEG,25);
+EEG = correctDelay(EEG,22);
 
 %% Edit channel locations 
 myChanLocs = 'GSN-HydroCel-129.sfp';
@@ -60,8 +60,14 @@ MFDFA(4) = max(hq) - min(hq); % MFDFA_MAXMIN
 MFDFA 
 
 % Evaluate CD, PK and FNNB 
+% Set parameters for CD, PK, FNNB
 d = 10; % Maximum dimension
-[CD, PK, FNNB] = fcnCD_PK_v2(downsample(EEG.data(channel, epochStart:epochEnd),downsampleRate),d,0,1,10,0,1); 
+plt = 0; % Plot flag
+tt = 1; % Tic flag
+fnntol = 10; % Tolerance
+slow = 0; % Slow flag 
+usefnn = 1; % Use fnn flag
+[CD, PK, FNNB] = fcnCD_PK_v2(downsample(EEG.data(channel, epochStart:epochEnd),downsampleRate),d,plt,tt,fnntol,slow,usefnn); 
 
 % Print solution
 CD

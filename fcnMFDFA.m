@@ -2,7 +2,7 @@ function [Hq,tq,hq,Dq,Fq] = fcnMFDFA(signal,scale,q,m,Fig)
 % Multifractal detrended fluctuation analysis (MFDFA)
 %
 % [Hq,tq,hq,Dq,Fq]=MFDFA(signal,scale,q,m,Fig);
-% 
+%
 % INPUT PARAMETERS---------------------------------------------------------
 %
 % signal:       input signal
@@ -53,7 +53,7 @@ for ns=1:length(scale),
     for v=1:segments(ns),
         Index=((((v-1)*scale(ns))+1):(v*scale(ns)));
         C=polyfit(Index,X(Index),m);
-        fit=polyval(C,Index);
+        fit=polyval(C,Index);           
         RMS_scale{ns}(v)=sqrt(mean((X(Index)-fit).^2));
     end
     for nq=1:length(q),
@@ -63,11 +63,8 @@ for ns=1:length(scale),
     Fq(q==0,ns)=exp(0.5*mean(log(RMS_scale{ns}.^2)));
 end
 for nq=1:length(q),
-   % C = polyfit(log2(scale),log2(Fq(nq,:)),1);
-   lwr=3;
-   upr=0;
-   slp=(log2(Fq(nq,end+upr))-log2(Fq(nq,lwr)))/(log2(scale(end+upr))-log2(scale(lwr)));
-    C=[slp  log2(Fq(nq,lwr))-slp*log2(scale(lwr))];
+%     C = polyfit(log2(scale),log2(Fq(nq,:)),1);
+    C=(log2(Fq(nq,end))-log2(Fq(nq,1)))/(log2(scale(end))-log2(scale(1)));
     Hq(nq) = C(1);
     qRegLine{nq} = polyval(C,log2(scale));
 end

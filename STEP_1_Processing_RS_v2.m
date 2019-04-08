@@ -99,7 +99,7 @@ for iFile = 1:size(myFolderInfo,1)
     EEG = pop_readegi(filename, [],[],'auto');
 
     %% Correct delay 
-    EEG = correctDelay(EEG,25);
+    EEG = correctDelay(EEG,22);
 
     %% Edit channel locations 
     myChanLocs = 'GSN-HydroCel-129.sfp';

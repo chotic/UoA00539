@@ -1,4 +1,4 @@
-%% This script will calculate 5 measures for all files containing RS in the folder: filepathName
+%% This script will calculate 10 measures for all files containing RS in the folder: filepathName
 % All files fcn*.m contain Matlab functions used in calculating measures.
 
 %% This will suppress al Matlab warnings
@@ -8,8 +8,8 @@ warning('off','all')
 addpath(genpath('./'));
 
 %% Compile mex code
-mex computeDists.cpp
-mex computeRatio.cpp
+mex computeDists4.cpp % Chris's optimised version
+mex computeRatio4.cpp % Chris's optimised version
 mex countGraphEdges.cpp
 
 %% Flag indicating number of channels for processing
@@ -23,8 +23,8 @@ flag1020 = 1;
 flagFiltered = 0; 
 
 %% Check Cores
-
 matThreads=feature('numcores');
+
 %% Check if in cluster or local
 % Environment Variable TMPDIR only exists in slurm environment.
 tmpDir = getenv('TMPDIR');
@@ -135,6 +135,7 @@ for iFile = 1:size(myFolderInfo,1)
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_CD')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_PK')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_FNNB')) = {0}; 
+        tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_D')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_LE')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_HFD')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_MSE')) = {0}; 
@@ -170,7 +171,7 @@ for iFile = 1:size(myFolderInfo,1)
             end
 
             % Store results in this matrix for parallel processing purposes
-            resultMat = zeros(size(EEG.chanlocs,2),12);
+            resultMat = zeros(size(EEG.chanlocs,2),13);
             
             % Select channels accroding to flag1020
             channelVec = []; % Initiate the variable
@@ -185,34 +186,24 @@ for iFile = 1:size(myFolderInfo,1)
             tic;
             
             if sum(channelVec==jChan)==1
-                 % Correlation dimension, CD, PK, FNNB
-                d = 10;
-                
+                % CD, PK, FNNB, D
                 tic;
-                [CD, PK, FNNB] = fcnCD_PK_v2(downsample(tempDataAll(jChan,:),downsampleRate),d,0,1,10,0,1); 
+                uf = 1; % Use fnn
+                tt = 0; % Measure time - tic toc
+                prt = 0; % Print results
+                [CD, PK, FNNB, D] = fcnEMBED(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
                 time_CD_PK = time_CD_PK + toc;	
 
-                % False nearest neighbors
-%                 tao = 10;
-%                 mmax = 10;
-%                 rtol = 10;
-%                 atol = 2;
-%                 thresh = 0.5;
-%                 FNN = find(fcnFNN(downsample(tempDataAll(jChan,:),downsampleRate),tao,mmax,rtol,atol) < thresh,1);
-%                 if isempty(FNN)
-%                     FNN = nan;
-%                 end
+                % Lyapunov Spectrum
+                LE = fcnLE(downsample(tempDataAll(jChan,:)',downsampleRate),1);
+ 
+                % Higuchi FD
+                kmax = 5;
+                HFD = fcnHFD(downsample(tempDataAll(jChan,:),downsampleRate), kmax);
 
-%                 % Lyapunov Spectrum
-%                 LE = fcnLE(tempDataAll(jChan,:)',1);
-% 
-%                 % Higuchi FD
-%                 kmax = 5;
-%                 HFD = fcnHFD(tempDataAll(jChan,:), kmax);
-% 
-%                 % MSE
-%                 [MSE, ~, ~] = fcnSE(tempDataAll(jChan,:));
-% 
+                % MSE
+                [MSE, ~, ~] = fcnSE(downsample(tempDataAll(jChan,:),downsampleRate));
+
                 % MFDFA
                 scmin = 16;
                 scmax = 1024;
@@ -238,20 +229,20 @@ for iFile = 1:size(myFolderInfo,1)
                     MFDFA(4) = max(hq)-min(hq);
                 end
                 
-%                 % LZ
-%                 LZ = fcnLZ(tempDataAll(jChan,:) >= median(tempDataAll(jChan,:)));
+                % LZ
+                LZ = fcnLZ(downsample(tempDataAll(jChan,:),downsampleRate)...
+                    >= median(downsample(tempDataAll(jChan,:),downsampleRate)));
                 
                 % PSVG
                 tic;
                 VG = fcnPSVG(downsample(tempDataAll(jChan,:),downsampleRate)');
                 time_PSVG = time_PSVG + toc;
                 
-                % Store results
-                LE = 0; HFD = 0; MSE = 0; LZ = 0; 
+                % Store results 
                 if FNNB==0
                     FNNB = 1.0000e-16; % To avoid deleting the column later in the code
                 end
-                resultMat(jChan,:) = [CD,PK,FNNB,LE,HFD,MSE,MFDFA,LZ,VG];
+                resultMat(jChan,:) = [CD, PK, FNNB, D, LE, HFD, MSE, MFDFA, LZ, VG];
             end
             
             % Show progress
@@ -263,7 +254,7 @@ for iFile = 1:size(myFolderInfo,1)
         
         % Save output to a table
         resultMatT = resultMat';
-        tableOutput{iEvent, 4:4 + 129*12 - 1} = resultMatT(:)'; 
+        tableOutput{iEvent, 4:4 + 129*13 - 1} = resultMatT(:)'; 
 
         % Perform a checksum and display
         disp(['check nansum: ', num2str(nansum(resultMat(:)))])

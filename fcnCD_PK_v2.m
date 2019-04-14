@@ -61,26 +61,48 @@ end
 % closer than epsilon and return epsilon and count in
 % the array ratio for later graphical analysis with Excel
 
-dists=NaN(l2, l2);
-[mn, mx] = computeDists(l2, d, vec, dists);
+% if mod(l2,2)
+%     dists=single(NaN(l2,(l2-1)/2));
+% else
+%     dists=single(NaN(l2/2,l2-1));
+% end
+
+% dists=single(NaN(ceil((l2-1)/2),l2));
+
+%   dists=single(NaN(l2*(l2-1)/2,ceil((l2-1)/2)));
+%dists=single(NaN(l2*(l2-1)/2,1));
+  
+dists=single(NaN(l2,ceil((l2-1)/2)));
+
+[mn, mx] = computeDists4(l2, d, vec, dists);
 
 fnnb=0;
 if usefnn
-    md=min(dists);
     nnb=zeros(1,l2);
-    for i=1:l2
-        nnb(i)=find(dists(:,i)-md(i)==0,1);
-    end
+    md=zeros(1,l2);
+    hld=zeros(1,l2);
+    hldall=zeros(l2,l2);
     fnnb=0;
     for i=1:l2
-        if abs(iv(i+d)-iv(nnb(i)+d))/dists(i,nnb(i))>fnntol
-            fnnb=fnnb+1/l2;
+        pos=i;
+        for k=1:i-1
+            hld(k)=dists(pos-1);
+            pos=pos+l2-k-1;
+        end
+        hld(i)=10^6;
+        hld(i+1:l2)=dists(pos:pos+l2-i-1);
+        hldall(i,:)=hld;
+        md(i)=min(hld);
+        nnb(i)=find(hld-md(i)==0,1);
+        if abs(iv(i+d)-iv(nnb(i)+d))/md(i)>fnntol
+            fnnb=fnnb+1;
         end
     end
 end
+fnnb=fnnb/(l2-d);
+scales = 12;
 
-scales = 18;
-[ratio, n] = computeRatio(mn, mx, scales, dists);
+[ratio, n] = computeRatio4(mn, mx, scales, dists);
 
 ratio=ratio(:,1:n-1);
 

@@ -8,8 +8,8 @@ addpath(genpath('./'));
 
 %% Compile mex code
 mex computeDists.cpp
-mex computeRatio.cpp
-mex countGraphEdges.cpp
+mex computeRatio4.cpp
+mex countGraphEdges4.cpp
 
 %% Get file you want to investigate
 myFolderInfo = dir('../Raw files/Pilot3003.RAW'); 
@@ -59,16 +59,14 @@ MFDFA(4) = max(hq) - min(hq); % MFDFA_MAXMIN
 % Print Chris's parameters
 MFDFA 
 
-% Evaluate CD, PK and FNNB 
-% Set parameters for CD, PK, FNNB
-d = 10; % Maximum dimension
-plt = 0; % Plot flag
-tt = 1; % Tic flag
-fnntol = 10; % Tolerance
-slow = 0; % Slow flag 
-usefnn = 1; % Use fnn flag
-[CD, PK, FNNB] = fcnCD_PK_v2(downsample(EEG.data(channel, epochStart:epochEnd),downsampleRate),d,plt,tt,fnntol,slow,usefnn); 
-
+% Evaluate CD, PK, FNNB and D
+% Set parameters for CD, PK, FNNB and D
+uf = 1; % Use fnn
+tt = 0; % Measure time - tic toc
+prt = 0; % Print results
+[CD, PK, FNNB, D] = fcnEMBED(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
+time_CD_PK = time_CD_PK + toc;	
+                
 % Print solution
 CD
 PK

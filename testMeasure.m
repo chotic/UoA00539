@@ -64,8 +64,8 @@ MFDFA
 uf = 1; % Use fnn
 tt = 0; % Measure time - tic toc
 prt = 0; % Print results
-[CD, PK, FNNB, D] = fcnEMBED(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
-time_CD_PK = time_CD_PK + toc;	
+[CD, PK, FNNB, D] = fcnEMBED(downsample(EEG.data(channel, epochStart:epochEnd),downsampleRate),uf,tt,prt); 
+
                 
 % Print solution
 CD

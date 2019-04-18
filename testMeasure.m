@@ -4,15 +4,15 @@
 warning('off','all')
 
 %% Add path to use EEGLAB Matlab functions; Change path to your local copy of EEGLab
-addpath(genpath('./'));
+addpath(genpath('../'));
 
 %% Compile mex code
-mex computeDists.cpp
+mex computeDists4.cpp
 mex computeRatio4.cpp
-mex countGraphEdges4.cpp
+mex countGraphEdges.cpp
 
 %% Get file you want to investigate
-myFolderInfo = dir('../Raw files/Pilot3003.RAW'); 
+myFolderInfo = dir('../RAWfiles/Pilots/Pilot3003rs.RAW'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 iFile = 1;
 

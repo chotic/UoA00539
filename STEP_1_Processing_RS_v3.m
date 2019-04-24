@@ -21,7 +21,7 @@ flagFiltered = 0;
 if exist('downsampleRate', 'var')
     disp(['downsampleRate = ', num2str(downsampleRate)])
 else
-    downsampleRate = 5; 
+    downsampleRate = 1; 
     disp(['downsampleRate not set... will use ', num2str(downsampleRate)])
 end
 
@@ -30,9 +30,12 @@ myFolderInfo = dir('../AllRAWfiles/Pilots/*3rs.RAW');
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
-time_CD_PK = 0.;
-time_MFDFA = 0.;
-time_PSVG = 0.;
+time_CD_PK = 0;
+time_LE = 0;
+time_MSE = 0;
+time_MFDFA = 0;
+time_LZ = 0;
+time_PSVG = 0;
 time_tot = tic;
 
 %% Iterate through available files in the folder
@@ -104,12 +107,12 @@ for iFile = 1:size(myFolderInfo,1)
             % EOEC
             if size(tableOutput,1)<=5 
                 switch iEvent
-                    case 1 % [DIN1 - 60000 DIN1 + 60000],
-                         tempDataAll = EEG.data(:, EEG.event(2).latency - 60000:EEG.event(2).latency + 60000);
-                    case 2 % [DIN0 DIN1]
-                         tempDataAll = EEG.data(:, EEG.event(1).latency:EEG.event(2).latency);
-                    case 3 % [DIN1 DIN0]
-                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(3).latency);
+                    case 1 % [DIN1 - 15000 DIN1 + 15000],
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 15000:EEG.event(2).latency + 15000);
+                    case 2 % [DIN1-30000 DIN1]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 30000:EEG.event(2).latency);
+                    case 3 % [DIN1 DIN1 + 30000]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(2).latency + 30000);
                 end
             end
 
@@ -125,7 +128,7 @@ for iFile = 1:size(myFolderInfo,1)
                 channelVec = 1:size(EEG.chanlocs,2);
             end
             
-        for jChan = 1:size(EEG.chanlocs,2);
+        for jChan = 1:size(EEG.chanlocs,2)
             tic;
             
             if sum(channelVec==jChan)==1
@@ -138,15 +141,21 @@ for iFile = 1:size(myFolderInfo,1)
                 time_CD_PK = time_CD_PK + toc;	
 
                 % Lyapunov Spectrum
+                tic;
                 LE = fcnLE(downsample(tempDataAll(jChan,:)',downsampleRate),1);
- 
+                time_LE = time_LE + toc;	
+                
                 % Higuchi FD
+                tic;
                 kmax = 5;
                 HFD = fcnHFD(downsample(tempDataAll(jChan,:),downsampleRate), kmax);
-
+                time_LE = time_LE + toc;	
+                
                 % MSE
+                tic;
                 [MSE, ~, ~] = fcnSE(downsample(tempDataAll(jChan,:),downsampleRate));
-
+                time_MSE = time_MSE + toc;	
+                
                 % MFDFA
                 scmin = 16;
                 scmax = 1024;
@@ -173,8 +182,10 @@ for iFile = 1:size(myFolderInfo,1)
                 end
                 
                 % LZ
+                tic;
                 LZ = fcnLZ(downsample(tempDataAll(jChan,:),downsampleRate)...
                     >= median(downsample(tempDataAll(jChan,:),downsampleRate)));
+                time_LZ = time_LZ + toc;
                 
                 % PSVG
                 %tic;
@@ -193,7 +204,15 @@ for iFile = 1:size(myFolderInfo,1)
             if rem(jChan, 10)==1
                 disp([' Channel: ', num2str(jChan)])
             end
-            toc
+            
+            % Show times
+            disp([' CD_PK: ', num2str(time_CD_PK),...
+                ' LE: ', num2str(time_LE),...
+                ' MSE: ', num2str(time_MSE),...
+                ' MFDFA: ', num2str(time_MFDFA),...
+                ' LZ: ', num2str(time_LZ),...
+                ' total time: ', num2str(toc(time_tot)),...
+                ' [secs]'])
         end
         
         % Save output to a table

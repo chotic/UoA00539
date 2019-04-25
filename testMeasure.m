@@ -4,15 +4,15 @@
 warning('off','all')
 
 %% Add path to use EEGLAB Matlab functions; Change path to your local copy of EEGLab
-addpath(genpath('./'));
+addpath(genpath('../'));
 
 %% Compile mex code
-mex computeDists.cpp
+mex computeDists4.cpp
 mex computeRatio4.cpp
-mex countGraphEdges4.cpp
+mex countGraphEdges.cpp
 
 %% Get file you want to investigate
-myFolderInfo = dir('../Raw files/Pilot3003.RAW'); 
+myFolderInfo = dir('../RAWfiles/Pilots/Pilot3003rs.RAW'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 iFile = 1;
 
@@ -64,8 +64,8 @@ MFDFA
 uf = 1; % Use fnn
 tt = 0; % Measure time - tic toc
 prt = 0; % Print results
-[CD, PK, FNNB, D] = fcnEMBED(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
-time_CD_PK = time_CD_PK + toc;	
+[CD, PK, FNNB, D] = fcnEMBED(downsample(EEG.data(channel, epochStart:epochEnd),downsampleRate),uf,tt,prt); 
+
                 
 % Print solution
 CD

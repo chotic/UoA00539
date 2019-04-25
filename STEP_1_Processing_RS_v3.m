@@ -5,12 +5,7 @@
 warning('off','all')
 
 %% Add path to use EEGLAB Matlab functions; Change path to your local copy of EEGLab
-addpath(genpath('./'));
-
-%% Compile mex code
-mex computeDists4.cpp % Chris's optimised version
-mex computeRatio4.cpp % Chris's optimised version
-mex countGraphEdges.cpp
+addpath(genpath('../eeglab14_1_2b/'));
 
 %% Flag indicating number of channels for processing
 % If flag1020 = 1 then we process only 10/20 channels according to p. 7 in HydroCelGSN_10-10.pdf
@@ -22,72 +17,25 @@ flag1020 = 1;
 % If flagFiltered = 0 then FIR is not used.
 flagFiltered = 0; 
 
-%% Check Cores
-matThreads=feature('numcores');
-
-%% Check if in cluster or local
-% Environment Variable TMPDIR only exists in slurm environment.
-tmpDir = getenv('TMPDIR');
-if ~isempty(tmpDir)   
-       slurmThreads = str2double(getenv('SLURM_CPUS_PER_TASK'));
-       if ~isempty(tmpDir)
-           maxWorkers=slurmThreads;
-       else
-           maxWorkers=1;
-       end
-else
-    tmpDir=tempdir;
-    maxWorkers=matThreads;
-end
-
-%% Check if num workers specified, and legal.
-%Default workers is max.
-
-if exist('setWorkers','var')
-    if ~isnan((setWorkers))
-        if setWorkers < maxWorkers
-            maxWorkers=setWorkers;
-        else
-            disp(['Too many workers requested, using max of ', num2str(maxWorkers)]);
-        end
-    else
-        disp(['Invalid worker input requested, using max of ', num2str(maxWorkers)]);
-    end
-else
-    disp(['No workers requested, using max of ', num2str(maxWorkers)]);
-end 
-
-%% Setup parpool if workers > 1
-if maxWorkers>1
-    %Stop annoying bug
-    setenv('TZ','Pacific/Auckland');
-    
-    disp('Starting Parpool');
-    feature('numcores');
-    pc = parcluster('local');
-    pc.JobStorageLocation = tmpDir;
-    parpool(pc, maxWorkers);
-
-else
-    disp('Not enough threads, parpool disabled');
-end
-
 %% Downsample rate only samples every x values to reduce computation time for testing. Make '1' for max.
 if exist('downsampleRate', 'var')
     disp(['downsampleRate = ', num2str(downsampleRate)])
 else
-    downsampleRate = 20; 
+    downsampleRate = 1; 
     disp(['downsampleRate not set... will use ', num2str(downsampleRate)])
 end
 
 %% Get file(s)
-myFolderInfo = dir('../RAWfiles/Pilots/*3rs.RAW'); 
+myFolderInfo = dir('../AllRAWfiles/Pilots/*3rs.RAW'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
-time_CD_PK = 0.;
-time_MFDFA = 0.;
-time_PSVG = 0.;
+time_CD_PK = 0;
+time_LE = 0;
+time_MSE = 0;
+time_MFDFA = 0;
+time_LZ = 0;
+time_PSVG = 0;
 time_tot = tic;
 
 %% Iterate through available files in the folder
@@ -96,7 +44,7 @@ for iFile = 1:size(myFolderInfo,1)
     
     %% Read binary simple Netstation file
     filename = myFolderInfo(iFile).name; 
-    EEG = pop_readegi(filename, [],[],'auto');
+    EEG = pop_readegi(['../AllRAWfiles/Pilots/', filename], [],[],'auto');
 
     %% Correct delay 
     EEG = correctDelay(EEG,22);
@@ -114,7 +62,7 @@ for iFile = 1:size(myFolderInfo,1)
     end
     
     %% Correct DINs
-    EEG.event = cleanTriggers(EEG.event);
+    EEG.event = cleanTriggers_v3(EEG.event);
 
     %% Plot for checking
     %pop_eegplot( EEG, 1, 1, 1);
@@ -151,7 +99,7 @@ for iFile = 1:size(myFolderInfo,1)
     % [DIN0 DIN0], [DIN1 - 30000 DIN1 + 30000], [DIN0 DIN1] and [DIN1 DIN0]
     
     % EOEC; 
-    eventVec = 1:4;
+    eventVec = 1:3;
 
     %% Iterate through events
     for iEvent = eventVec
@@ -159,14 +107,12 @@ for iFile = 1:size(myFolderInfo,1)
             % EOEC
             if size(tableOutput,1)<=5 
                 switch iEvent
-                    case 1 % [DIN0 DIN0]
-                         tempDataAll = EEG.data(:, EEG.event(1).latency:EEG.event(3).latency);
-                    case 2 % [DIN1 - 30000 DIN1 + 30000],
-                         tempDataAll = EEG.data(:, EEG.event(2).latency - 30000:EEG.event(2).latency + 30000);
-                    case 3 % [DIN0 DIN1]
-                         tempDataAll = EEG.data(:, EEG.event(1).latency:EEG.event(2).latency);
-                    case 4 % [DIN1 DIN0]
-                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(3).latency);
+                    case 1 % [DIN1 - 15000 DIN1 + 15000],
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 15000:EEG.event(2).latency + 15000);
+                    case 2 % [DIN1-30000 DIN1]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 30000:EEG.event(2).latency);
+                    case 3 % [DIN1 DIN1 + 30000]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(2).latency + 30000);
                 end
             end
 
@@ -182,7 +128,7 @@ for iFile = 1:size(myFolderInfo,1)
                 channelVec = 1:size(EEG.chanlocs,2);
             end
             
-        parfor jChan = 1:size(EEG.chanlocs,2)
+        for jChan = 1:size(EEG.chanlocs,2)
             tic;
             
             if sum(channelVec==jChan)==1
@@ -191,19 +137,25 @@ for iFile = 1:size(myFolderInfo,1)
                 uf = 1; % Use fnn
                 tt = 0; % Measure time - tic toc
                 prt = 0; % Print results
-                [CD, PK, FNNB, D] = fcnEMBED(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
+                [CD, PK, FNNB, D] = fcnEMBED_v3(downsample(tempDataAll(jChan,:),downsampleRate),uf,tt,prt); 
                 time_CD_PK = time_CD_PK + toc;	
 
                 % Lyapunov Spectrum
+                tic;
                 LE = fcnLE(downsample(tempDataAll(jChan,:)',downsampleRate),1);
- 
+                time_LE = time_LE + toc;	
+                
                 % Higuchi FD
+                tic;
                 kmax = 5;
                 HFD = fcnHFD(downsample(tempDataAll(jChan,:),downsampleRate), kmax);
-
+                time_LE = time_LE + toc;	
+                
                 % MSE
+                tic;
                 [MSE, ~, ~] = fcnSE(downsample(tempDataAll(jChan,:),downsampleRate));
-
+                time_MSE = time_MSE + toc;	
+                
                 % MFDFA
                 scmin = 16;
                 scmax = 1024;
@@ -230,26 +182,37 @@ for iFile = 1:size(myFolderInfo,1)
                 end
                 
                 % LZ
+                tic;
                 LZ = fcnLZ(downsample(tempDataAll(jChan,:),downsampleRate)...
                     >= median(downsample(tempDataAll(jChan,:),downsampleRate)));
+                time_LZ = time_LZ + toc;
                 
                 % PSVG
-                tic;
-                VG = fcnPSVG(downsample(tempDataAll(jChan,:),downsampleRate)');
-                time_PSVG = time_PSVG + toc;
+                %tic;
+                %VG = fcnPSVG_v3(downsample(tempDataAll(jChan,:),downsampleRate)');
+                %time_PSVG = time_PSVG + toc;
                 
                 % Store results 
                 if FNNB==0
                     FNNB = 1.0000e-16; % To avoid deleting the column later in the code
                 end
+                VG = 0;
                 resultMat(jChan,:) = [CD, PK, FNNB, D, LE, HFD, MSE, MFDFA, LZ, VG];
             end
             
             % Show progress
-            if rem(jChan, 10)==0
+            if rem(jChan, 10)==1
                 disp([' Channel: ', num2str(jChan)])
             end
-            toc
+            
+            % Show times
+            disp([' CD_PK: ', num2str(time_CD_PK),...
+                ' LE: ', num2str(time_LE),...
+                ' MSE: ', num2str(time_MSE),...
+                ' MFDFA: ', num2str(time_MFDFA),...
+                ' LZ: ', num2str(time_LZ),...
+                ' total time: ', num2str(toc(time_tot)),...
+                ' [secs]'])
         end
         
         % Save output to a table
@@ -262,7 +225,6 @@ for iFile = 1:size(myFolderInfo,1)
 	% Time stats
 	disp([' CD_PK_v2 timing: ', num2str(time_CD_PK),...
 	      ' MFDFA timing: ', num2str(time_MFDFA),...
-	      ' PSVG timing: ', num2str(time_PSVG), ...
 	      ' total time: ', num2str(toc(time_tot)),...
 	      ' [secs]'])
         
@@ -276,7 +238,7 @@ for iFile = 1:size(myFolderInfo,1)
     tableOutput = tableOutput(:,4:end);
     tableOutput = tableOutput(:,~all(tableOutput{:,:}==0));
     
-    writetable(tableOutput,strrep(filename,'.RAW','RS.xlsx'),'Sheet',1,'Range','A1')
+    writetable(tableOutput,strrep(['../AllRAWfiles/Pilots/', filename],'.RAW','RS.xlsx'),'Sheet',1,'Range','A1')
 
 end % loop for files
 

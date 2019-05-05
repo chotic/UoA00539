@@ -26,7 +26,7 @@ else
 end
 
 %% Get file(s)
-myFolderInfo = dir('../AllRAWfiles/Pilots/*3rs.RAW'); 
+myFolderInfo = dir('../AllRAWfiles/Pilots/*.RAW'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
@@ -79,7 +79,7 @@ for iFile = 1:size(myFolderInfo,1)
     %% Calculate fractal dimensions and save the output to Excel spreadsheet
     % Prepare table for output; allocate memory
     tableOutput = struct2table(EEG.event);
-    for jChan=1:size(EEG.chanlocs,2)
+    for jChan = 1:size(EEG.chanlocs,2)
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_CD')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_PK')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_FNNB')) = {0}; 
@@ -94,38 +94,61 @@ for iFile = 1:size(myFolderInfo,1)
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_LZ')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels,'_VG')) = {0}; 
     end
-    %% We process EOEC only   
-    % EOEC; 
-    eventVec = 1:3;
+    %% We process RS, BCST and RMET 
+    % Check if RMET and then iterate through DIN8 events [DIN8 DIN8]
+    % Check if BCST and then iterate through [DIN1 DIN4(8)+100]
+    % Check if RS and then iterate through [DIN1 - 2500 DIN1 + 2500], [DIN1 - 5000 DIN1], [DIN1 DIN1 + 5000]
+    
+    % Initialise vector with events for processing
+    eventVec = []; 
+
+    switch filename(end-5:end-4)
+    case 'et' % RMET
+        disp('RMET file selected.')
+        eventVec = find(arrayfun(@(x) strcmp(x.type, 'DIN8'), EEG.event));
+    case 'st' % BCST
+        disp('BCST file selected.')
+        eventVec = find(arrayfun(@(x) strcmp(x.type, 'DIN1'), EEG.event));
+    case 'rs' %RS
+        disp('RS file selected.')
+        eventVec = find(arrayfun(@(x) strcmp(x.type, 'DIN1') || strcmp(x.type, 'DIN0'), EEG.event));
+    otherwise
+        disp('TYPE OF FILE NOT RECOGNISED - FILENAMES MUST END WITH rs, bcst or rmet. ')
+        return
+    end
 
     %% Iterate through events
     for iEvent = eventVec
-         % Extract epochs
-            % EOEC
-            if size(tableOutput,1)<=5 
+        % Extract epochs
+        switch filename(end-5:end-4)
+            case 'et' % RMET
+                tempDataAll = EEG.data(:, EEG.event(iEvent).latency:EEG.event(iEvent + 1).latency);
+            case 'st' % BCST
+                tempDataAll = EEG.data(:, EEG.event(iEvent).latency:EEG.event(iEvent + 1).latency+100);
+            case 'rs' %RS
                 switch iEvent
-                    case 1 % [DIN1 - 15000 DIN1 + 15000],
-                         tempDataAll = EEG.data(:, EEG.event(2).latency - 15000:EEG.event(2).latency + 15000);
-                    case 2 % [DIN1-30000 DIN1]
-                         tempDataAll = EEG.data(:, EEG.event(2).latency - 30000:EEG.event(2).latency);
-                    case 3 % [DIN1 DIN1 + 30000]
-                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(2).latency + 30000);
+                    case 1 % [DIN1 - 2500 DIN1 + 2500],
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 2500:EEG.event(2).latency + 2500);
+                    case 2 % [DIN1 - 5000 DIN1]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency - 5000:EEG.event(2).latency);
+                    case 3 % [DIN1 DIN1 + 5000]
+                         tempDataAll = EEG.data(:, EEG.event(2).latency:EEG.event(2).latency + 5000);
                 end
-            end
-
-            % Store results in this matrix for parallel processing purposes
-            resultMat = zeros(size(EEG.chanlocs,2),13);
+        end
+  
+        % Store results in this matrix for parallel processing purposes
+        resultMat = zeros(size(EEG.chanlocs,2),13);
+           
+        % Select channels accroding to flag1020
+        channelVec = []; % Initiate the variable
+        if flag1020 == 1
+            channelVec = [36, 104, 129, 24, 124, 33, 122, 22, 9, 14, 21, ...
+                15, 11, 70, 83, 52, 92, 58, 96, 45, 108];
+        else
+            channelVec = 1:size(EEG.chanlocs, 2);
+        end
             
-            % Select channels accroding to flag1020
-            channelVec = []; % Initiate the variable
-            if flag1020 == 1
-                channelVec = [36, 104, 129, 24, 124, 33, 122, 22, 9, 14, 21, ...
-                    15, 11, 70, 83, 52, 92, 58, 96, 45, 108];
-            else
-                channelVec = 1:size(EEG.chanlocs,2);
-            end
-            
-        for jChan = 1:size(EEG.chanlocs,2)
+        for jChan = 1:size(EEG.chanlocs, 2)
             tic;
             
             if sum(channelVec==jChan)==1
@@ -162,27 +185,32 @@ for iFile = 1:size(myFolderInfo,1)
                 q = linspace(-5,5,101);
                 m = 1;
                 
-                tic;  
-                [Hq,tq,hq,Dq,Fq] = fcnMFDFA(downsample(tempDataAll(jChan,:),downsampleRate),scale,q,m,0);
-                time_MFDFA = time_MFDFA + toc;
-                
-                % Remove NaN and Inf in Dq and hq
-                hq = hq(~isnan(hq) | ~isinf(hq));
-                Dq = Dq(~isnan(Dq) | ~isinf(Dq));
-                % Create vector for storing outputs
-                MFDFA = zeros(1,4);
-                if (~isempty(hq) && ~isempty(Dq))
-                    MFDFA(1) = Dq(1);
-                    MFDFA(2) = max(Dq);
-                    MFDFA(3) = Dq(end);
-                    MFDFA(4) = max(hq)-min(hq);
+                tic;
+                % Check if enough length of signal is available
+                if length(downsample(tempDataAll(jChan,:),downsampleRate)) >= 1024
+                    [Hq,tq,hq,Dq,Fq] = fcnMFDFA(downsample(tempDataAll(jChan,:),downsampleRate),scale,q,m,0);
+                    time_MFDFA = time_MFDFA + toc;
+
+                    % Remove NaN and Inf in Dq and hq
+                    hq = hq(~isnan(hq) | ~isinf(hq));
+                    Dq = Dq(~isnan(Dq) | ~isinf(Dq));
+                    % Create vector for storing outputs
+                    MFDFA = zeros(1,4);
+                    if (~isempty(hq) && ~isempty(Dq))
+                        MFDFA(1) = Dq(1);
+                        MFDFA(2) = max(Dq);
+                        MFDFA(3) = Dq(end);
+                        MFDFA(4) = max(hq)-min(hq);
+                    end
+                else
+                    MFDFA = ones(1,4) * 1.0000e-16;
                 end
                 
                 % LZ
                 tic;
                 LZ = fcnLZ(downsample(tempDataAll(jChan,:),downsampleRate)...
                     >= median(downsample(tempDataAll(jChan,:),downsampleRate)));
-                %time_LZ = time_LZ + toc;
+                time_LZ = time_LZ + toc;
                 
                 % PSVG
                 %tic;
@@ -226,7 +254,7 @@ for iFile = 1:size(myFolderInfo,1)
 	      ' [secs]'])
         
         % Save length of epoch
-        tableOutput(iEvent, 'Epoch_length') = {size(tempDataAll,2)}; 
+        tableOutput(iEvent, 'Epoch_length') = {size(tempDataAll, 2)}; 
         disp([' Event: ', num2str(iEvent)])
     end % loop for events
 
@@ -235,7 +263,7 @@ for iFile = 1:size(myFolderInfo,1)
     tableOutput = tableOutput(:,4:end);
     tableOutput = tableOutput(:,~all(tableOutput{:,:}==0));
     
-    writetable(tableOutput,strrep(['../AllRAWfiles/Pilots/', filename],'.RAW','RS.xlsx'),'Sheet',1,'Range','A1')
+    writetable(tableOutput, strrep(['../AllRAWfiles/Pilots/', filename],'.RAW','.xlsx'),'Sheet',1,'Range','A1')
 
 end % loop for files
 

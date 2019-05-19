@@ -1,21 +1,13 @@
-%% This script will calculate 9 measures for all files containing RS in the folder: filepathName
+%% This script will calculate 9 measures for all files containing RS in myFolderInfo
 % All files fcn*.m contain Matlab functions used in calculating measures.
 
 %% This will suppress al Matlab warnings
 warning('off', 'all')
 
-%% Add path to use EEGLAB Matlab functions; Change path to your local copy of EEGLab
-addpath(genpath('../eeglab14_1_2b/'));
-
 %% Flag indicating number of channels for processing
 % If flag1020 = 1 then we process only 10/20 channels according to p. 7 in HydroCelGSN_10-10.pdf
 % If flag1020 = 0 then we process all channels accordingly.
 flag1020 = 1;  
-
-%% Flag indicating whether to use FIR
-% If flagFiltered = 1 then FIR is applied.
-% If flagFiltered = 0 then FIR is not used.
-flagFiltered = 0; 
 
 %% Downsample rate only samples every x values to reduce computation time for testing. Make '1' for max.
 if exist('downsampleRate', 'var')
@@ -26,7 +18,7 @@ else
 end
 
 %% Get file(s)
-myFolderInfo = dir('../AllRAWfiles/Pilots/*3rs.RAW'); 
+myFolderInfo = dir('../AllRAWfiles/PilotsProcessed/**/*p_*3rs.mat'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
@@ -41,41 +33,19 @@ time_tot = tic;
 for iFile = 1:size(myFolderInfo, 1)
     disp([' File: ', num2str(iFile), ' ', myFolderInfo(iFile).name])   % File for processing
     
-    % Read binary simple Netstation file
+    % Load processed file
     filename = myFolderInfo(iFile).name; 
-    EEG = pop_readegi(['../AllRAWfiles/Pilots/', filename], [],[],'auto');
-
+    foldername = myFolderInfo(iFile).folder; 
+    load([foldername, '\', filename ])
+    
     % Correct delay 
     EEG = correctDelay(EEG, 22);
 
-    % Edit channel locations 
-    myChanLocs = 'GSN-HydroCel-129.sfp';
-    EEG = pop_chanedit(EEG, 'load', {myChanLocs 'filetype' 'autodetect'}, ...
-        'setref', {'4:128' 'Cz'}, 'changefield', {132 'datachan' 0});
-
-    % Re-reference and add 'Cz' back to the data
-    EEG = pop_reref(EEG, [], 'refloc', struct('labels',{'Cz'},...
-        'Y',{0},'X',{5.4492e-16},'Z',{8.8992},'sph_theta',{0},'sph_phi',{90},'sph_radius',{8.8992},'theta',{0},'radius',{0},'type',{''},'ref',{'Cz'},'urchan',{132},'datachan',{0}));
-
-    % Filter the data; 0.1 for low and 50 for high
-    if flagFiltered == 1
-        EEG = pop_eegfiltnew(EEG, 0.1, 50, 33000, 0, [], 1);    
-    end
-    
     % Correct DINs
     EEG.event = cleanTriggers_v3(EEG.event);
 
-    % Plot for checking
-    %pop_eegplot( EEG, 1, 1, 1);
-
-    % Run ICA
-    %EEG = pop_runica(EEG, 'extended',1,'interupt','on');
-
     % Use for checking consistency of dataset
     EEG = eeg_checkset(EEG);
-
-    % Save dataset; 
-    %EEG = pop_saveset( EEG, 'filename',strrep(filename,'.RAW','RS.set'),'filepath',filepathName);
 
     % Calculate fractal dimensions and save the output to Excel spreadsheet
     % Prepare table for output; allocate memory
@@ -120,8 +90,8 @@ for iFile = 1:size(myFolderInfo, 1)
             % Select channels accroding to flag1020
             channelVec = []; % Initiate the variable
             if flag1020 == 1
-                channelVec = [36, 104, 129, 24, 124, 33, 122, 22, 9, 14, 21, ...
-                    15, 11, 70, 83, 52, 92, 58, 96, 45, 108];
+                channelVec = [7, 9, 12, 17, 19, 26, 29, 38, 43, 48, 58, 69, ...
+                    77, 80, 87, 90, 102, 104, 105];
             else
                 channelVec = 1:size(EEG.chanlocs,2);
             end
@@ -248,8 +218,8 @@ for iFile = 1:size(myFolderInfo, 1)
     end
     
     % Save to xlsx spreadsheet
-    writetable(tableOutput,strrep(['../AllRAWfiles/Pilots/', computerName, ...
-        '_', datestr(now, 'yyyymmdd'), '_', filename],'.RAW','_RS.xlsx'), ...
+    writetable(tableOutput,strrep(['../AllRAWfiles/PilotsProcessed/', computerName, ...
+        '_', datestr(now, 'yyyymmdd'), '_', filename],'.mat','_RS_Processed.xlsx'), ...
         'Sheet', 1, 'Range', 'A1')
 
 end % loop for files

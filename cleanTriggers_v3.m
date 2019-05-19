@@ -1,4 +1,4 @@
-function eventCorrect = cleanTriggers(event)
+function eventCorrect = cleanTriggers_v3(event)
 %cleanTriggers takes EEG.event input and returns a cleaned version:
 % - replace sequence [DIN8, DIN4, DIN2, DIN1] with DIN0 for RMET and BCST
 % - replace sequence [DIN8, DIN4, DIN2] with DIN0 for Eyes Open/Close
@@ -10,15 +10,26 @@ function eventCorrect = cleanTriggers(event)
     
 for i = 1:(size(event,2)-3)
     if (strcmp(event(i).type,'DIN8') && strcmp(event(i+1).type,'DIN4') && ...
-            strcmp(event(i+2).type,'DIN2') && strcmp(event(i+3).type,'DIN1'))
+            strcmp(event(i+2).type,'DIN2') && strcmp(event(i+3).type,'DIN1')) 
         % Replace with DIN0
         event(i).type = 'DIN0';
         event(i+1).type = 'DIN0';
         event(i+2).type = 'DIN0';
         event(i+3).type = 'DIN0';
     end
+    
+    
 end
 
+for i = 1:(size(event,2)-2)
+    if (strcmp(event(i).type,'DIN1') && strcmp(event(i+1).type,'DIN2') && strcmp(event(i+2).type,'DIN4'))
+        % Replace with DIN0
+        event(i).type = 'DIN0';
+        event(i+1).type = 'DIN0';
+        event(i+2).type = 'DIN0';
+    end
+end
+    
 %% Loops through all the events contained in event; Eyes Open -> Eyes Closed
 % If the sequence [DIN8, DIN4, DIN2] is present replace 
 % with [DIN0, DIN0, DIN0] - ending sequence
@@ -35,7 +46,8 @@ if size(event,2) <=10
     % Endind sequence
     for i = 1:(size(event,2)-2)
         if (strcmp(event(i).type,'DIN8') && strcmp(event(i+1).type,'DIN4') && ...
-                strcmp(event(i+2).type,'DIN2'))
+                strcmp(event(i+2).type,'DIN2')) || (strcmp(event(i).type,'DIN2') && ...
+                strcmp(event(i+1).type,'DIN4') && strcmp(event(i+2).type,'DIN8')) 
             % Replace with DIN0
             event(i).type = 'DIN0';
             event(i+1).type = 'DIN0';

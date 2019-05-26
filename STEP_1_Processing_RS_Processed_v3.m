@@ -18,7 +18,7 @@ else
 end
 
 %% Get file(s)
-myFolderInfo = dir('../AllRAWfiles/PilotsProcessed/**/*p_*3rs.mat'); 
+myFolderInfo = dir('../AllRAWfiles4Preprocess/Pilots/**/*p_*3rs.mat'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
@@ -50,6 +50,9 @@ for iFile = 1:size(myFolderInfo, 1)
     % Calculate fractal dimensions and save the output to Excel spreadsheet
     % Prepare table for output; allocate memory
     tableOutput = struct2table(EEG.event);
+    % Remove columns introduced by automagic
+    tableOutput.value = [];
+    tableOutput.duration = [];
     for jChan = 1:size(EEG.chanlocs, 2)
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels, '_CD')) = {0}; 
         tableOutput(1, strcat(EEG.chanlocs(jChan).labels, '_PK')) = {0}; 
@@ -91,16 +94,18 @@ for iFile = 1:size(myFolderInfo, 1)
             channelVec = []; % Initiate the variable
             if flag1020 == 1
                 channelVec = [7, 9, 12, 17, 19, 26, 29, 38, 43, 48, 58, 69, ...
-                    77, 80, 87, 90, 102, 104, 105];
+                    77, 80, 87, 90, 102, 104];
+                % Channel 105 (Cz) is not included as it is vector of zeros
             else
                 channelVec = 1:size(EEG.chanlocs,2);
             end
             
         % Iterate thorugh channels
-        for jChan = 1:size(EEG.chanlocs,2)
+        for jChan = 1:size(EEG.chanlocs, 2)
             tic;
-            
-            if sum(channelVec==jChan)==1
+            % Check if channel was selected and if it was rejected by
+            % automagic
+            if sum(channelVec==jChan)==1 && sum(automagic.autoBadChans==jChan)==0
                 % CD, PK, FNNB, D
                 tic;
                 uf = 1; % Use fnn
@@ -185,7 +190,7 @@ for iFile = 1:size(myFolderInfo, 1)
         
         % Save output to a table
         resultMatT = resultMat';
-        tableOutput{iEvent, 4:4 + 129*31 - 1} = resultMatT(:)'; 
+        tableOutput{iEvent, 4:4 + 105*31 - 1} = resultMatT(:)'; 
 
         % Perform a checksum and display
         disp(['check nansum: ', num2str(nansum(resultMat(:)))])
@@ -218,7 +223,7 @@ for iFile = 1:size(myFolderInfo, 1)
     end
     
     % Save to xlsx spreadsheet
-    writetable(tableOutput,strrep(['../AllRAWfiles/PilotsProcessed/', computerName, ...
+    writetable(tableOutput,strrep(['../OutputFiles/', computerName, ...
         '_', datestr(now, 'yyyymmdd'), '_', filename],'.mat','_RS_Processed.xlsx'), ...
         'Sheet', 1, 'Range', 'A1')
 

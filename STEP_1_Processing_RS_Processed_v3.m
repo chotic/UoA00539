@@ -18,7 +18,7 @@ else
 end
 
 %% Get file(s)
-myFolderInfo = dir('../AllRAWfiles4Preprocess/Pilots/**/*p_*3rs.mat'); 
+myFolderInfo = dir('../AllRAWfiles4Preprocess/PilotsProcessed/**/*p_*3rs.mat'); 
 myFolderInfo = myFolderInfo(~cellfun('isempty', {myFolderInfo.date}));
 
 % time stats
@@ -36,16 +36,13 @@ for iFile = 1:size(myFolderInfo, 1)
     % Load processed file
     filename = myFolderInfo(iFile).name; 
     foldername = myFolderInfo(iFile).folder; 
-    load([foldername, '\', filename ])
+    load([foldername, '/', filename ])
     
     % Correct delay 
     EEG = correctDelay(EEG, 22);
 
     % Correct DINs
     EEG.event = cleanTriggers_v3(EEG.event);
-
-    % Use for checking consistency of dataset
-    EEG = eeg_checkset(EEG);
 
     % Calculate fractal dimensions and save the output to Excel spreadsheet
     % Prepare table for output; allocate memory

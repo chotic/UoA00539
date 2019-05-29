@@ -10,7 +10,20 @@ function eventCorrect = cleanTriggers_v3(event)
     
 for i = 1:(size(event,2)-3)
     if (strcmp(event(i).type,'DIN8') && strcmp(event(i+1).type,'DIN4') && ...
-            strcmp(event(i+2).type,'DIN2') && strcmp(event(i+3).type,'DIN1')) 
+            strcmp(event(i+2).type,'DIN2') && strcmp(event(i+3).type,'DIN1') && ... 
+            event(i).latency == event(i+1).latency && event(i+1).latency == event(i+2).latency && ...
+            event(i+2).latency == event(i+3).latency) 
+        % Replace with DIN0
+        event(i).type = 'DIN0';
+        event(i+1).type = 'DIN0';
+        event(i+2).type = 'DIN0';
+        event(i+3).type = 'DIN0';
+    end
+    
+    if (strcmp(event(i).type,'DIN1') && strcmp(event(i+1).type,'DIN2') && ...
+            strcmp(event(i+2).type,'DIN4') && strcmp(event(i+3).type,'DIN8') && ...
+            event(i).latency == event(i+1).latency && event(i+1).latency == event(i+2).latency && ...
+            event(i+2).latency == event(i+3).latency) 
         % Replace with DIN0
         event(i).type = 'DIN0';
         event(i+1).type = 'DIN0';
@@ -22,7 +35,15 @@ for i = 1:(size(event,2)-3)
 end
 
 for i = 1:(size(event,2)-2)
-    if (strcmp(event(i).type,'DIN1') && strcmp(event(i+1).type,'DIN2') && strcmp(event(i+2).type,'DIN4'))
+    if (strcmp(event(i).type,'DIN1') && strcmp(event(i+1).type,'DIN2') && strcmp(event(i+2).type,'DIN4') && ...
+            event(i).latency == event(i+1).latency && event(i+1).latency == event(i+2).latency)
+        % Replace with DIN0
+        event(i).type = 'DIN0';
+        event(i+1).type = 'DIN0';
+        event(i+2).type = 'DIN0';
+    end
+    if (strcmp(event(i).type,'DIN4') && strcmp(event(i+1).type,'DIN2') && strcmp(event(i+2).type,'DIN1') && ...
+            event(i).latency == event(i+1).latency && event(i+1).latency == event(i+2).latency)
         % Replace with DIN0
         event(i).type = 'DIN0';
         event(i+1).type = 'DIN0';

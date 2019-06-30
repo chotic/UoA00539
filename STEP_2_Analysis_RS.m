@@ -1,5 +1,5 @@
 % In this script we perform EDA and statistical analysis of RS files
-% Epoch length 30 seconds
+% Epoch length: 30 seconds
 
 %% Analysis of _RS.xlsx files
 computerName = {'pc', 'mac'};

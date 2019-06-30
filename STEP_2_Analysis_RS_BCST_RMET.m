@@ -1,8 +1,8 @@
-% In this script we perform EDA and statistical analysis of processed 
+% In this script we perform EDA and statistical analysis of RS, BCST and
+% RMET files.
 
-% Input: Files in ........
 
-%% Analysis of _RS.xlsx files
+%% Analysis of files from Unprocessed_RS_BCST_RMET folder
 computerName = {'pc', 'mac'};
 measureName = {'CD', 'PK', 'LE', 'HFD', 'MSE_1', 'MSE_2', 'MSE_3', 'MSE_4',...
     'MSE_5', 'MSE_6', 'MSE_7', 'MSE_8', 'MSE_9', 'MSE_10', 'MSE_11', 'MSE_12',...
@@ -75,8 +75,6 @@ for iComp = 1:2
         
     end
     
-
-
     % Iterate through measures
     for jMeasure = 1:size(measureName, 2)
         % Plot boxplot for each measure

@@ -34,7 +34,7 @@ for iComp = 1:2
         end
     end
 
-      % Iterate through measures
+    % Iterate through measures
     for jMeasure = 1:size(measureName, 2)
         % Plot boxplot for each measure
         indMeasure = find(~cellfun(@isempty, ...
